@@ -52,20 +52,30 @@ class ProjectParser:
         from xml.sax.saxutils import escape
         import base64
 
-        # 1. Testo della descrizione
-        description = description or "Nessuna descrizione fornita."
-        lines = textwrap.wrap(description, width=35)
-            
-        tspan_elements = ""
-        for line in lines:
+        # 1. FORMATTAZIONE TITOLO MULTIRIGA
+        # Un font di 18px fa entrare circa 20 caratteri in 250px di larghezza
+        title_lines = textwrap.wrap(title, width=20, break_long_words=True)
+        title_tspan_elements = ""
+        for i, line in enumerate(title_lines):
             clean_line = escape(line)
-            tspan_elements += f'<tspan x="18" dy="18">{clean_line}</tspan>\n    '
+            dy = "0" if i == 0 else "22" # La prima riga sta ferma, le successive scendono di 22px
+            title_tspan_elements += f'<tspan x="18" dy="{dy}">{clean_line}</tspan>\n    '
 
-        # 2. FIX TITOLO: Taglio elegante con i "..." se supera i 24 caratteri
-        display_title = title if len(title) <= 24 else title[:22] + "..."
-        clean_title = escape(display_title)
+        # 2. FORMATTAZIONE DESCRIZIONE
+        description = description or "Nessuna descrizione fornita."
+        desc_lines = textwrap.wrap(description, width=35, break_long_words=True)
+        desc_tspan_elements = ""
+        for i, line in enumerate(desc_lines):
+            clean_line = escape(line)
+            dy = "0" if i == 0 else "18"
+            desc_tspan_elements += f'<tspan x="18" dy="{dy}">{clean_line}</tspan>\n    '
 
-        # 3. Immagine Base64
+        # 3. CALCOLO POSIZIONE INIZIALE DESCRIZIONE (Basato sulle righe del titolo)
+        title_start_y = 215
+        title_bottom = title_start_y + ((len(title_lines) - 1) * 22) if title_lines else title_start_y
+        desc_start_y = title_bottom + 25 # Margine di 25px sotto il titolo
+
+        # 4. IMMAGINE BASE64
         b64_image_data = ""
         if image_url:
             try:
@@ -78,7 +88,7 @@ class ProjectParser:
             except Exception as e:
                 print(f"Errore nel download dell'immagine {image_url}: {e}")
 
-        # 4. Creazione SVG con card_height unificato
+        # 5. CREAZIONE SVG
         svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{self._card_width}" height="{card_height}" viewBox="0 0 {self._card_width} {card_height}">
   <defs>
     <clipPath id="image-clip">
@@ -94,9 +104,11 @@ class ProjectParser:
   <image href="{b64_image_data}" x="0" y="0" width="{self._card_width}" height="180" preserveAspectRatio="xMidYMid slice" clip-path="url(#image-clip)"/>
   <line x1="0" y1="180" x2="{self._card_width}" y2="180" stroke="#30363d" stroke-width="1.5" />
   
-  <text x="18" y="215" class="title">{clean_title}</text>
-  <text x="18" y="235" class="desc">
-    {tspan_elements}
+  <text x="18" y="{title_start_y}" class="title">
+    {title_tspan_elements}
+  </text>
+  <text x="18" y="{desc_start_y}" class="desc">
+    {desc_tspan_elements}
   </text>
 </svg>"""
 
@@ -124,11 +136,10 @@ class ProjectParser:
                 final_markdown += f"{section_title}\n<br>\n\n"
 
             section_outputs = []
-            
-            # --- PASS 1: Troviamo l'altezza MASSIMA necessaria in questa riga ---
             processed_projects = []
-            max_section_height = 320 # Altezza minima di base
+            max_section_height = 320 # Altezza minima
             
+            # --- PASS 1: Troviamo l'altezza MASSIMA calcolando i testi multiriga ---
             for proj in projects[: self._max_projects]:
                 full_repo_path = proj.get("full_repo_path") or proj.get("repo_name")
                 if not full_repo_path:
@@ -140,32 +151,39 @@ class ProjectParser:
 
                 custom_desc = proj.get("custom_description", "")
                 final_description = custom_desc if custom_desc else github_data.get("description", "")
+                project_title = github_data.get("name", full_repo_path.split('/')[-1])
                 
-                # Quante righe occupa questa specifica descrizione?
-                lines = textwrap.wrap(final_description or "", width=35)
-                calculated_h = 240 + (len(lines) * 18) + 20
+                # Simuliamo l'ingombro del testo
+                title_lines = textwrap.wrap(project_title, width=20, break_long_words=True)
+                desc_lines = textwrap.wrap(final_description or "Nessuna descrizione fornita.", width=35, break_long_words=True)
+                
+                # Calcolo altezza basato sul numero di righe totali generate
+                title_bottom = 215 + ((len(title_lines) - 1) * 22) if title_lines else 215
+                desc_start_y = title_bottom + 25
+                desc_bottom = desc_start_y + ((len(desc_lines) - 1) * 18) if desc_lines else desc_start_y
+                calculated_h = desc_bottom + 25 # +25 di padding in basso
+                
                 if calculated_h > max_section_height:
-                    max_section_height = calculated_h # Aggiorniamo il "record" di altezza
+                    max_section_height = calculated_h
                 
                 processed_projects.append({
                     "path": full_repo_path,
-                    "title": github_data.get("name", full_repo_path.split('/')[-1]),
+                    "title": project_title,
                     "desc": final_description,
                     "url": github_data.get("html_url", "#"),
                     "image": proj.get("image_url", "")
                 })
 
-            # --- PASS 2: Generiamo gli SVG forzandoli TUTTI all'altezza massima ---
+            # --- PASS 2: Generiamo gli SVG forzandoli all'altezza massima ---
             for p in processed_projects:
                 svg_path = self.generate_svg(p["path"], p["title"], p["desc"], p["image"], max_section_height)
                 escaped_title = p["title"].replace('"', "&quot;")
                 
-                # FIX LARGHEZZA: Usiamo width="32%" per fargli occupare 3 colonne responsive 
+                # Larghezza fissa al 32% per mantenere sempre 3 colonne perfette
                 section_outputs.append(
                     f'<a href="{p["url"]}"><img src="{svg_path}" alt="{escaped_title}" title="{escaped_title}" width="32%"></a>'
                 )
 
-            # Uniamo le card della sezione lasciando uno spazio vuoto
             final_markdown += " ".join(section_outputs) + "\n\n"
 
         return final_markdown.strip()
