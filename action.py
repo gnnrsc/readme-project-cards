@@ -1,5 +1,6 @@
 import json
 import os
+import re # Aggiunto per riconoscere i **
 import textwrap
 import urllib.parse
 import urllib.request
@@ -52,21 +53,25 @@ class ProjectParser:
         from xml.sax.saxutils import escape
         import base64
 
-        # 1. FORMATTAZIONE TITOLO MULTIRIGA (Font 28px, max 23 caratteri)
+        # 1. FORMATTAZIONE TITOLO
         title_lines = textwrap.wrap(title, width=23, break_long_words=True)
         title_tspan_elements = ""
         for i, line in enumerate(title_lines):
             clean_line = escape(line)
-            dy = "0" if i == 0 else "32" # Salto riga bilanciato
+            # Permette di evidenziare anche parole nel titolo se vuoi!
+            clean_line = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#ffd33d">\1</tspan>', clean_line)
+            dy = "0" if i == 0 else "32" 
             title_tspan_elements += f'<tspan x="26" dy="{dy}">{clean_line}</tspan>\n    '
 
-        # 2. FORMATTAZIONE DESCRIZIONE (Font 20px, max 38 caratteri)
+        # 2. FORMATTAZIONE DESCRIZIONE
         description = description or "Nessuna descrizione fornita."
         desc_lines = textwrap.wrap(description, width=38, break_long_words=True)
         desc_tspan_elements = ""
         for i, line in enumerate(desc_lines):
             clean_line = escape(line)
-            dy = "0" if i == 0 else "26" # Salto riga bilanciato
+            # LA MAGIA È QUI: Trasforma **parola** in colore giallo oro
+            clean_line = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#ffd33d">\1</tspan>', clean_line)
+            dy = "0" if i == 0 else "26" 
             desc_tspan_elements += f'<tspan x="26" dy="{dy}">{clean_line}</tspan>\n    '
 
         # 3. CALCOLO POSIZIONE INIZIALE DESCRIZIONE
@@ -87,7 +92,7 @@ class ProjectParser:
             except Exception as e:
                 print(f"Errore nel download dell'immagine {image_url}: {e}")
 
-        # 5. CREAZIONE SVG (Font-size a 28px e 20px)
+        # 5. CREAZIONE SVG
         svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{self._card_width}" height="{card_height}" viewBox="0 0 {self._card_width} {card_height}">
   <defs>
     <clipPath id="image-clip">
@@ -136,9 +141,8 @@ class ProjectParser:
 
             section_outputs = []
             processed_projects = []
-            max_section_height = 340 # Altezza minima riequilibrata
+            max_section_height = 340 
             
-            # --- PASS 1: Troviamo l'altezza MASSIMA ---
             for proj in projects[: self._max_projects]:
                 full_repo_path = proj.get("full_repo_path") or proj.get("repo_name")
                 if not full_repo_path:
@@ -152,7 +156,6 @@ class ProjectParser:
                 final_description = custom_desc if custom_desc else github_data.get("description", "")
                 project_title = github_data.get("name", full_repo_path.split('/')[-1])
                 
-                # Calcoli spazi aggiornati
                 title_lines = textwrap.wrap(project_title, width=23, break_long_words=True)
                 desc_lines = textwrap.wrap(final_description or "Nessuna descrizione fornita.", width=38, break_long_words=True)
                 
@@ -172,7 +175,6 @@ class ProjectParser:
                     "image": proj.get("image_url", "")
                 })
 
-            # --- PASS 2: Generiamo gli SVG ---
             for p in processed_projects:
                 svg_path = self.generate_svg(p["path"], p["title"], p["desc"], p["image"], max_section_height)
                 escaped_title = p["title"].replace('"', "&quot;")
