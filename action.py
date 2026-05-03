@@ -16,7 +16,7 @@ class ProjectParser:
 
     def fetch_github_data(self, full_repo_path: str) -> Dict[str, Any]:
         if not full_repo_path or "/" not in full_repo_path:
-            return {} # Salta la chiamata API se non è un vero repo (es. id fittizio)
+            return {} 
         
         url = f"https://api.github.com/repos/{full_repo_path}"
         req = urllib.request.Request(url)
@@ -43,7 +43,7 @@ class ProjectParser:
             return ""
 
     def generate_svg(self, file_name: str, title: str, description: str, image_url: str, card_height: int) -> str:
-        """Genera la card standard a colonna"""
+        """Genera la card standard a colonna (Mantiene i font grandi perché viene rimpicciolita)"""
         from xml.sax.saxutils import escape
         title_lines = textwrap.wrap(title, width=23, break_long_words=True)
         title_tspan = ""
@@ -80,41 +80,41 @@ class ProjectParser:
         with open(file_path, "w", encoding="utf-8") as f: f.write(svg)
         return file_path
 
-    def generate_wide_svg(self, file_name: str, title: str, description: str, image_url: str) -> str:
-        """Genera la card Orizzontale (Immagine a sinistra, testo a destra)"""
+    def generate_wide_svg(self, file_name: str, title: str, description: str, image_url: str, card_height: int) -> str:
+        """Genera la card Orizzontale con altezza e font proporzionati"""
         from xml.sax.saxutils import escape
         WIDE_WIDTH = 880
-        WIDE_HEIGHT = 280
         IMG_WIDTH = 380
 
-        title_lines = textwrap.wrap(title, width=35, break_long_words=True)
+        # Wrap molto più largo (65) e Font più eleganti per la lettura 1:1
+        title_lines = textwrap.wrap(title, width=40, break_long_words=True)
         title_tspan = ""
         for i, line in enumerate(title_lines):
             clean = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#e5c07b">\1</tspan>', escape(line))
-            title_tspan += f'<tspan x="{IMG_WIDTH + 30}" dy="{"0" if i == 0 else "34"}">{clean}</tspan>\n'
+            title_tspan += f'<tspan x="{IMG_WIDTH + 30}" dy="{"0" if i == 0 else "28"}">{clean}</tspan>\n'
 
-        desc_lines = textwrap.wrap(description or "", width=45, break_long_words=True)
+        desc_lines = textwrap.wrap(description or "", width=65, break_long_words=True)
         desc_tspan = ""
         for i, line in enumerate(desc_lines):
             clean = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#e5c07b">\1</tspan>', escape(line))
-            desc_tspan += f'<tspan x="{IMG_WIDTH + 30}" dy="{"0" if i == 0 else "26"}">{clean}</tspan>\n'
+            desc_tspan += f'<tspan x="{IMG_WIDTH + 30}" dy="{"0" if i == 0 else "22"}">{clean}</tspan>\n'
 
-        title_start_y = 60
-        title_bottom = title_start_y + ((len(title_lines) - 1) * 34) if title_lines else title_start_y
-        desc_start_y = title_bottom + 35
+        title_start_y = 50
+        title_bottom = title_start_y + ((len(title_lines) - 1) * 28) if title_lines else title_start_y
+        desc_start_y = title_bottom + 25
         b64_img = self.get_base64_image(image_url)
 
-        svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{WIDE_WIDTH}" height="{WIDE_HEIGHT}" viewBox="0 0 {WIDE_WIDTH} {WIDE_HEIGHT}">
+        svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{WIDE_WIDTH}" height="{card_height}" viewBox="0 0 {WIDE_WIDTH} {card_height}">
   <defs>
-    <clipPath id="left-clip"><path d="M 10 0 L {IMG_WIDTH} 0 L {IMG_WIDTH} {WIDE_HEIGHT} L 10 {WIDE_HEIGHT} A 10 10 0 0 1 0 {WIDE_HEIGHT - 10} L 0 10 A 10 10 0 0 1 10 0 Z"/></clipPath>
+    <clipPath id="left-clip"><path d="M 10 0 L {IMG_WIDTH} 0 L {IMG_WIDTH} {card_height} L 10 {card_height} A 10 10 0 0 1 0 {card_height - 10} L 0 10 A 10 10 0 0 1 10 0 Z"/></clipPath>
     <style>
-      .title {{ font-family: -apple-system, sans-serif; font-weight: 600; font-size: 28px; fill: {self._title_color}; }}
-      .desc {{ font-family: -apple-system, sans-serif; font-weight: 400; font-size: 20px; fill: {self._stats_color}; }}
+      .title {{ font-family: -apple-system, sans-serif; font-weight: 600; font-size: 24px; fill: {self._title_color}; }}
+      .desc {{ font-family: -apple-system, sans-serif; font-weight: 400; font-size: 16px; fill: {self._stats_color}; }}
     </style>
   </defs>
-  <rect width="{WIDE_WIDTH}" height="{WIDE_HEIGHT}" rx="{self._border_radius}" fill="{self._background_color}" stroke="#30363d" stroke-width="1.5"/>
-  <image href="{b64_img}" width="{IMG_WIDTH}" height="{WIDE_HEIGHT}" preserveAspectRatio="xMidYMid slice" clip-path="url(#left-clip)"/>
-  <line x1="{IMG_WIDTH}" y1="0" x2="{IMG_WIDTH}" y2="{WIDE_HEIGHT}" stroke="#30363d" stroke-width="1.5"/>
+  <rect width="{WIDE_WIDTH}" height="{card_height}" rx="{self._border_radius}" fill="{self._background_color}" stroke="#30363d" stroke-width="1.5"/>
+  <image href="{b64_img}" width="{IMG_WIDTH}" height="{card_height}" preserveAspectRatio="xMidYMid slice" clip-path="url(#left-clip)"/>
+  <line x1="{IMG_WIDTH}" y1="0" x2="{IMG_WIDTH}" y2="{card_height}" stroke="#30363d" stroke-width="1.5"/>
   <text y="{title_start_y}" class="title">{title_tspan}</text>
   <text y="{desc_start_y}" class="desc">{desc_tspan}</text>
 </svg>"""
@@ -143,7 +143,6 @@ class ProjectParser:
                 github_data = self.fetch_github_data(proj_id)
                 custom_title = proj.get("custom_title")
                 
-                # Se non trova dati su GitHub E non c'è un custom_title, salta (evita errori)
                 if not github_data and not custom_title: continue
 
                 final_description = proj.get("custom_description") or github_data.get("description", "")
@@ -151,29 +150,38 @@ class ProjectParser:
                 project_url = proj.get("custom_url") or github_data.get("html_url", "#")
                 layout = proj.get("layout", "grid")
 
-                # Se è grid, calcola l'altezza massima per la riga
-                if layout == "grid":
+                # CALCOLO ALTEZZA DINAMICA SEPARATA
+                if layout == "wide":
+                    title_lines = textwrap.wrap(project_title, width=40, break_long_words=True)
+                    desc_lines = textwrap.wrap(final_description or "", width=65, break_long_words=True)
+                    title_bottom = 50 + ((len(title_lines) - 1) * 28) if title_lines else 50
+                    desc_bottom = (title_bottom + 25) + ((len(desc_lines) - 1) * 22) if desc_lines else (title_bottom + 25)
+                    calculated_h = max(240, desc_bottom + 30) # Minimo 240px per contenere bene la foto
+                    
+                    processed_projects.append({
+                        "id": proj_id.replace("/", "-"),
+                        "title": project_title, "desc": final_description, "url": project_url,
+                        "image": proj.get("image_url", ""), "layout": layout, "height": calculated_h
+                    })
+                else:
                     title_lines = textwrap.wrap(project_title, width=23, break_long_words=True)
                     desc_lines = textwrap.wrap(final_description or "", width=38, break_long_words=True)
                     title_bottom = 205 + ((len(title_lines) - 1) * 32) if title_lines else 205
                     desc_bottom = (title_bottom + 30) + ((len(desc_lines) - 1) * 26) if desc_lines else (title_bottom + 30)
                     calculated_h = desc_bottom + 35 
                     if calculated_h > max_section_height: max_section_height = calculated_h
-                
-                processed_projects.append({
-                    "id": proj_id.replace("/", "-"), # Evita cartelle inesistenti nel salvataggio
-                    "title": project_title,
-                    "desc": final_description,
-                    "url": project_url,
-                    "image": proj.get("image_url", ""),
-                    "layout": layout
-                })
+                    
+                    processed_projects.append({
+                        "id": proj_id.replace("/", "-"),
+                        "title": project_title, "desc": final_description, "url": project_url,
+                        "image": proj.get("image_url", ""), "layout": layout
+                    })
 
             for p in processed_projects:
                 escaped_title = p["title"].replace('"', "&quot;")
                 if p["layout"] == "wide":
-                    svg_path = self.generate_wide_svg(p["id"], p["title"], p["desc"], p["image"])
-                    # La card Wide usa width 100% per prendere tutta la riga
+                    # Passiamo l'altezza calcolata appositamente per questa card
+                    svg_path = self.generate_wide_svg(p["id"], p["title"], p["desc"], p["image"], p["height"])
                     section_outputs.append(f'<a href="{p["url"]}"><img src="{svg_path}" alt="{escaped_title}" title="{escaped_title}" width="100%"></a><br><br>')
                 else:
                     svg_path = self.generate_svg(p["id"], p["title"], p["desc"], p["image"], max_section_height)
