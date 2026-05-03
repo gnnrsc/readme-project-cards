@@ -52,27 +52,27 @@ class ProjectParser:
         from xml.sax.saxutils import escape
         import base64
 
-        # 1. FORMATTAZIONE TITOLO MULTIRIGA (Font gigante 32px, max 20 caratteri)
-        title_lines = textwrap.wrap(title, width=20, break_long_words=True)
+        # 1. FORMATTAZIONE TITOLO MULTIRIGA (Font 28px, max 23 caratteri)
+        title_lines = textwrap.wrap(title, width=23, break_long_words=True)
         title_tspan_elements = ""
         for i, line in enumerate(title_lines):
             clean_line = escape(line)
-            dy = "0" if i == 0 else "38" # Distanza tra righe aumentata
+            dy = "0" if i == 0 else "32" # Salto riga bilanciato
             title_tspan_elements += f'<tspan x="26" dy="{dy}">{clean_line}</tspan>\n    '
 
-        # 2. FORMATTAZIONE DESCRIZIONE (Font grande 24px, max 32 caratteri)
+        # 2. FORMATTAZIONE DESCRIZIONE (Font 20px, max 38 caratteri)
         description = description or "Nessuna descrizione fornita."
-        desc_lines = textwrap.wrap(description, width=32, break_long_words=True)
+        desc_lines = textwrap.wrap(description, width=38, break_long_words=True)
         desc_tspan_elements = ""
         for i, line in enumerate(desc_lines):
             clean_line = escape(line)
-            dy = "0" if i == 0 else "30" # Distanza tra righe aumentata
+            dy = "0" if i == 0 else "26" # Salto riga bilanciato
             desc_tspan_elements += f'<tspan x="26" dy="{dy}">{clean_line}</tspan>\n    '
 
         # 3. CALCOLO POSIZIONE INIZIALE DESCRIZIONE
-        title_start_y = 210
-        title_bottom = title_start_y + ((len(title_lines) - 1) * 38) if title_lines else title_start_y
-        desc_start_y = title_bottom + 34 
+        title_start_y = 205
+        title_bottom = title_start_y + ((len(title_lines) - 1) * 32) if title_lines else title_start_y
+        desc_start_y = title_bottom + 30 
 
         # 4. IMMAGINE BASE64
         b64_image_data = ""
@@ -87,7 +87,7 @@ class ProjectParser:
             except Exception as e:
                 print(f"Errore nel download dell'immagine {image_url}: {e}")
 
-        # 5. CREAZIONE SVG (Aggiornati i font-size a 32px e 24px)
+        # 5. CREAZIONE SVG (Font-size a 28px e 20px)
         svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{self._card_width}" height="{card_height}" viewBox="0 0 {self._card_width} {card_height}">
   <defs>
     <clipPath id="image-clip">
@@ -136,7 +136,7 @@ class ProjectParser:
 
             section_outputs = []
             processed_projects = []
-            max_section_height = 360 # Altezza minima per font molto grandi
+            max_section_height = 340 # Altezza minima riequilibrata
             
             # --- PASS 1: Troviamo l'altezza MASSIMA ---
             for proj in projects[: self._max_projects]:
@@ -152,14 +152,14 @@ class ProjectParser:
                 final_description = custom_desc if custom_desc else github_data.get("description", "")
                 project_title = github_data.get("name", full_repo_path.split('/')[-1])
                 
-                # Simulazione spazi occupati dai nuovi font giganti
-                title_lines = textwrap.wrap(project_title, width=20, break_long_words=True)
-                desc_lines = textwrap.wrap(final_description or "Nessuna descrizione fornita.", width=32, break_long_words=True)
+                # Calcoli spazi aggiornati
+                title_lines = textwrap.wrap(project_title, width=23, break_long_words=True)
+                desc_lines = textwrap.wrap(final_description or "Nessuna descrizione fornita.", width=38, break_long_words=True)
                 
-                title_bottom = 210 + ((len(title_lines) - 1) * 38) if title_lines else 210
-                desc_start_y = title_bottom + 34
-                desc_bottom = desc_start_y + ((len(desc_lines) - 1) * 30) if desc_lines else desc_start_y
-                calculated_h = desc_bottom + 40 # Padding finale
+                title_bottom = 205 + ((len(title_lines) - 1) * 32) if title_lines else 205
+                desc_start_y = title_bottom + 30
+                desc_bottom = desc_start_y + ((len(desc_lines) - 1) * 26) if desc_lines else desc_start_y
+                calculated_h = desc_bottom + 35 
                 
                 if calculated_h > max_section_height:
                     max_section_height = calculated_h
