@@ -94,8 +94,8 @@ class ProjectParser:
       <path d="M 10 0 L {self._card_width - 10} 0 A 10 10 0 0 1 {self._card_width} 10 L {self._card_width} 160 L 0 160 L 0 10 A 10 10 0 0 1 10 0 Z" />
     </clipPath>
     <style>
-      .title {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 600; font-size: 32px; fill: {self._title_color}; }}
-      .desc {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 400; font-size: 24px; fill: {self._stats_color}; }}
+      .title {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 600; font-size: 28px; fill: {self._title_color}; }}
+      .desc {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 400; font-size: 20px; fill: {self._stats_color}; }}
     </style>
   </defs>
   
