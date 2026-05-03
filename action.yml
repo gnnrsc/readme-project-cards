@@ -1,0 +1,33 @@
+name: 'Readme Project Cards'
+description: 'Genera card SVG eleganti per i tuoi progetti GitHub nel README'
+author: 'gnnrsc'
+
+# Gli input che l'utente può configurare nel suo workflow
+inputs:
+  github_username:
+    description: 'Il tuo username GitHub'
+    required: true
+  projects_config:
+    description: 'Il percorso al file JSON con la lista dei progetti'
+    default: 'projects-config.json'
+  comment_tag_name:
+    description: 'I tag HTML usati nel README (es. PROJECT-CARDS)'
+    default: 'PROJECT-CARDS'
+
+runs:
+  using: "composite" # Usa una serie di step combinati
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        
+    - name: Generate Cards and Update README
+      # L'istruzione magica: esegue action.py prendendolo dalla cartella della TUA action, non da quella dell'utente!
+      run: |
+        python ${{ github.action_path }}/action.py \
+          --github-username "${{ inputs.github_username }}" \
+          --projects-config "${{ inputs.projects_config }}" \
+          --comment-tag-name "${{ inputs.comment_tag_name }}" \
+          --output-only "false"
+      shell: bash
