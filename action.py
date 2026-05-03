@@ -43,7 +43,7 @@ class ProjectParser:
             return ""
 
     def generate_svg(self, file_name: str, title: str, description: str, image_url: str, card_height: int) -> str:
-        """Genera la card standard a colonna (Mantiene i font grandi perché viene rimpicciolita)"""
+        """Genera la card standard a colonna (Grid)"""
         from xml.sax.saxutils import escape
         title_lines = textwrap.wrap(title, width=23, break_long_words=True)
         title_tspan = ""
@@ -81,19 +81,19 @@ class ProjectParser:
         return file_path
 
     def generate_wide_svg(self, file_name: str, title: str, description: str, image_url: str, card_height: int) -> str:
-        """Genera la card Orizzontale con altezza e font proporzionati"""
+        """Genera la card Orizzontale con la nuova geometria"""
         from xml.sax.saxutils import escape
         WIDE_WIDTH = 880
-        IMG_WIDTH = 380
+        IMG_WIDTH = 440 # L'immagine ora prende metà esatta della card (440 su 880)
 
-        # Wrap molto più largo (65) e Font più eleganti per la lettura 1:1
-        title_lines = textwrap.wrap(title, width=40, break_long_words=True)
+        # Wrap ricalcolato per lo spazio rimanente
+        title_lines = textwrap.wrap(title, width=27, break_long_words=True)
         title_tspan = ""
         for i, line in enumerate(title_lines):
             clean = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#e5c07b">\1</tspan>', escape(line))
             title_tspan += f'<tspan x="{IMG_WIDTH + 30}" dy="{"0" if i == 0 else "28"}">{clean}</tspan>\n'
 
-        desc_lines = textwrap.wrap(description or "", width=65, break_long_words=True)
+        desc_lines = textwrap.wrap(description or "", width=43, break_long_words=True)
         desc_tspan = ""
         for i, line in enumerate(desc_lines):
             clean = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#e5c07b">\1</tspan>', escape(line))
@@ -150,13 +150,13 @@ class ProjectParser:
                 project_url = proj.get("custom_url") or github_data.get("html_url", "#")
                 layout = proj.get("layout", "grid")
 
-                # CALCOLO ALTEZZA DINAMICA SEPARATA
+                # CALCOLO ALTEZZA DINAMICA SEPARATA (Allineato ai nuovi wrap)
                 if layout == "wide":
-                    title_lines = textwrap.wrap(project_title, width=40, break_long_words=True)
-                    desc_lines = textwrap.wrap(final_description or "", width=65, break_long_words=True)
+                    title_lines = textwrap.wrap(project_title, width=27, break_long_words=True)
+                    desc_lines = textwrap.wrap(final_description or "", width=43, break_long_words=True)
                     title_bottom = 50 + ((len(title_lines) - 1) * 28) if title_lines else 50
                     desc_bottom = (title_bottom + 25) + ((len(desc_lines) - 1) * 22) if desc_lines else (title_bottom + 25)
-                    calculated_h = max(240, desc_bottom + 30) # Minimo 240px per contenere bene la foto
+                    calculated_h = max(240, desc_bottom + 30) 
                     
                     processed_projects.append({
                         "id": proj_id.replace("/", "-"),
@@ -180,7 +180,6 @@ class ProjectParser:
             for p in processed_projects:
                 escaped_title = p["title"].replace('"', "&quot;")
                 if p["layout"] == "wide":
-                    # Passiamo l'altezza calcolata appositamente per questa card
                     svg_path = self.generate_wide_svg(p["id"], p["title"], p["desc"], p["image"], p["height"])
                     section_outputs.append(f'<a href="{p["url"]}"><img src="{svg_path}" alt="{escaped_title}" title="{escaped_title}" width="100%"></a><br><br>')
                 else:
