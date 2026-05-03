@@ -52,27 +52,27 @@ class ProjectParser:
         from xml.sax.saxutils import escape
         import base64
 
-        # 1. FORMATTAZIONE TITOLO MULTIRIGA (Font più grande = meno caratteri per riga)
-        title_lines = textwrap.wrap(title, width=26, break_long_words=True)
+        # 1. FORMATTAZIONE TITOLO MULTIRIGA (Font gigante 32px, max 20 caratteri)
+        title_lines = textwrap.wrap(title, width=20, break_long_words=True)
         title_tspan_elements = ""
         for i, line in enumerate(title_lines):
             clean_line = escape(line)
-            dy = "0" if i == 0 else "28" # Salto riga più ampio (28px)
-            title_tspan_elements += f'<tspan x="24" dy="{dy}">{clean_line}</tspan>\n    '
+            dy = "0" if i == 0 else "38" # Distanza tra righe aumentata
+            title_tspan_elements += f'<tspan x="26" dy="{dy}">{clean_line}</tspan>\n    '
 
-        # 2. FORMATTAZIONE DESCRIZIONE
+        # 2. FORMATTAZIONE DESCRIZIONE (Font grande 24px, max 32 caratteri)
         description = description or "Nessuna descrizione fornita."
-        desc_lines = textwrap.wrap(description, width=44, break_long_words=True)
+        desc_lines = textwrap.wrap(description, width=32, break_long_words=True)
         desc_tspan_elements = ""
         for i, line in enumerate(desc_lines):
             clean_line = escape(line)
-            dy = "0" if i == 0 else "24" # Salto riga più ampio (24px)
-            desc_tspan_elements += f'<tspan x="24" dy="{dy}">{clean_line}</tspan>\n    '
+            dy = "0" if i == 0 else "30" # Distanza tra righe aumentata
+            desc_tspan_elements += f'<tspan x="26" dy="{dy}">{clean_line}</tspan>\n    '
 
         # 3. CALCOLO POSIZIONE INIZIALE DESCRIZIONE
-        title_start_y = 200
-        title_bottom = title_start_y + ((len(title_lines) - 1) * 28) if title_lines else title_start_y
-        desc_start_y = title_bottom + 28 
+        title_start_y = 210
+        title_bottom = title_start_y + ((len(title_lines) - 1) * 38) if title_lines else title_start_y
+        desc_start_y = title_bottom + 34 
 
         # 4. IMMAGINE BASE64
         b64_image_data = ""
@@ -87,15 +87,15 @@ class ProjectParser:
             except Exception as e:
                 print(f"Errore nel download dell'immagine {image_url}: {e}")
 
-        # 5. CREAZIONE SVG (Font ingranditi nelle <style> e margini aggiornati a x=24)
+        # 5. CREAZIONE SVG (Aggiornati i font-size a 32px e 24px)
         svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{self._card_width}" height="{card_height}" viewBox="0 0 {self._card_width} {card_height}">
   <defs>
     <clipPath id="image-clip">
       <path d="M 10 0 L {self._card_width - 10} 0 A 10 10 0 0 1 {self._card_width} 10 L {self._card_width} 160 L 0 160 L 0 10 A 10 10 0 0 1 10 0 Z" />
     </clipPath>
     <style>
-      .title {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 600; font-size: 24px; fill: {self._title_color}; }}
-      .desc {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 400; font-size: 18px; fill: {self._stats_color}; }}
+      .title {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 600; font-size: 32px; fill: {self._title_color}; }}
+      .desc {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 400; font-size: 24px; fill: {self._stats_color}; }}
     </style>
   </defs>
   
@@ -103,10 +103,10 @@ class ProjectParser:
   <image href="{b64_image_data}" x="0" y="0" width="{self._card_width}" height="160" preserveAspectRatio="xMidYMid slice" clip-path="url(#image-clip)"/>
   <line x1="0" y1="160" x2="{self._card_width}" y2="160" stroke="#30363d" stroke-width="1.5" />
   
-  <text x="24" y="{title_start_y}" class="title">
+  <text x="26" y="{title_start_y}" class="title">
     {title_tspan_elements}
   </text>
-  <text x="24" y="{desc_start_y}" class="desc">
+  <text x="26" y="{desc_start_y}" class="desc">
     {desc_tspan_elements}
   </text>
 </svg>"""
@@ -136,9 +136,9 @@ class ProjectParser:
 
             section_outputs = []
             processed_projects = []
-            max_section_height = 300 # Altezza minima rialzata per accogliere i font giganti
+            max_section_height = 360 # Altezza minima per font molto grandi
             
-            # --- PASS 1: Troviamo l'altezza MASSIMA calcolando i testi multiriga ---
+            # --- PASS 1: Troviamo l'altezza MASSIMA ---
             for proj in projects[: self._max_projects]:
                 full_repo_path = proj.get("full_repo_path") or proj.get("repo_name")
                 if not full_repo_path:
@@ -152,15 +152,14 @@ class ProjectParser:
                 final_description = custom_desc if custom_desc else github_data.get("description", "")
                 project_title = github_data.get("name", full_repo_path.split('/')[-1])
                 
-                # Simuliamo l'ingombro coi font grandi
-                title_lines = textwrap.wrap(project_title, width=26, break_long_words=True)
-                desc_lines = textwrap.wrap(final_description or "Nessuna descrizione fornita.", width=44, break_long_words=True)
+                # Simulazione spazi occupati dai nuovi font giganti
+                title_lines = textwrap.wrap(project_title, width=20, break_long_words=True)
+                desc_lines = textwrap.wrap(final_description or "Nessuna descrizione fornita.", width=32, break_long_words=True)
                 
-                # Calcolo altezza
-                title_bottom = 200 + ((len(title_lines) - 1) * 28) if title_lines else 200
-                desc_start_y = title_bottom + 28
-                desc_bottom = desc_start_y + ((len(desc_lines) - 1) * 24) if desc_lines else desc_start_y
-                calculated_h = desc_bottom + 30 
+                title_bottom = 210 + ((len(title_lines) - 1) * 38) if title_lines else 210
+                desc_start_y = title_bottom + 34
+                desc_bottom = desc_start_y + ((len(desc_lines) - 1) * 30) if desc_lines else desc_start_y
+                calculated_h = desc_bottom + 40 # Padding finale
                 
                 if calculated_h > max_section_height:
                     max_section_height = calculated_h
@@ -173,7 +172,7 @@ class ProjectParser:
                     "image": proj.get("image_url", "")
                 })
 
-            # --- PASS 2: Generiamo gli SVG forzandoli all'altezza massima ---
+            # --- PASS 2: Generiamo gli SVG ---
             for p in processed_projects:
                 svg_path = self.generate_svg(p["path"], p["title"], p["desc"], p["image"], max_section_height)
                 escaped_title = p["title"].replace('"', "&quot;")
@@ -243,9 +242,5 @@ if __name__ == "__main__":
 
     video_content = project_parser.parse_projects()
 
-    print("Contenuto generato con successo:")
-    print(video_content)
-
     if args.output_only == "false":
         FileUpdater.update(args.readme_path, args.comment_tag_name, video_content)
-        print(f"File {args.readme_path} aggiornato!")
