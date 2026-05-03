@@ -1,6 +1,6 @@
 import json
 import os
-import re # Aggiunto per riconoscere i **
+import re
 import textwrap
 import urllib.parse
 import urllib.request
@@ -58,8 +58,8 @@ class ProjectParser:
         title_tspan_elements = ""
         for i, line in enumerate(title_lines):
             clean_line = escape(line)
-            # Permette di evidenziare anche parole nel titolo se vuoi!
-            clean_line = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#ffd33d">\1</tspan>', clean_line)
+            # GIALLO MORBIDO PER IL TITOLO
+            clean_line = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#e5c07b">\1</tspan>', clean_line)
             dy = "0" if i == 0 else "32" 
             title_tspan_elements += f'<tspan x="26" dy="{dy}">{clean_line}</tspan>\n    '
 
@@ -69,8 +69,8 @@ class ProjectParser:
         desc_tspan_elements = ""
         for i, line in enumerate(desc_lines):
             clean_line = escape(line)
-            # LA MAGIA È QUI: Trasforma **parola** in colore giallo oro
-            clean_line = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#ffd33d">\1</tspan>', clean_line)
+            # GIALLO MORBIDO PER LA DESCRIZIONE
+            clean_line = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#e5c07b">\1</tspan>', clean_line)
             dy = "0" if i == 0 else "26" 
             desc_tspan_elements += f'<tspan x="26" dy="{dy}">{clean_line}</tspan>\n    '
 
