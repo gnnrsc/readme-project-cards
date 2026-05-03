@@ -125,48 +125,69 @@ class ProjectParser:
         return f"{self._cards_dir}/{file_name}.svg"
 
     def parse_projects(self) -> str:
-        """Legge il config, scarica i dati, genera gli SVG e crea il Markdown"""
+        """Legge il config diviso in sezioni, genera gli SVG e crea il Markdown"""
         if not os.path.exists(self._projects_config):
             raise RuntimeError(f"Config file non trovato: {self._projects_config}")
             
         with open(self._projects_config, "r", encoding="utf-8") as f:
-            my_projects = json.load(f)
+            config_data = json.load(f)
 
-        my_projects = my_projects[: self._max_projects]
-        markdown_outputs = []
+        final_markdown = ""
 
-        for proj in my_projects:
-            full_repo_path = proj.get("full_repo_path")
-            image_url = proj.get("image_url", "")
-            custom_desc = proj.get("custom_description", "")
+        # Iteriamo attraverso le sezioni definite nel JSON
+        for section in config_data:
+            section_title = section.get("section_title", "")
+            projects = section.get("projects", [])
             
-            github_data = self.fetch_github_data(full_repo_path)
+            # Se c'è un titolo, lo aggiungiamo al markdown finale
+            if section_title:
+                final_markdown += f"{section_title}\n<br>\n\n"
+
+            section_outputs = []
             
-            if not github_data:
-                continue
+            # Processiamo le card di questa specifica sezione
+            for proj in projects[: self._max_projects]:
+                # Supportiamo sia "full_repo_path" che "repo_name" per retrocompatibilità
+                full_repo_path = proj.get("full_repo_path") or proj.get("repo_name")
+                
+                if not full_repo_path:
+                    continue
 
-            # Override della descrizione se fornita nel JSON
-            final_description = custom_desc if custom_desc else github_data.get("description", "")
-            project_title = github_data.get("name", full_repo_path)
-            project_url = github_data.get("html_url", "#")
+                image_url = proj.get("image_url", "")
+                custom_desc = proj.get("custom_description", "")
+                
+                github_data = self.fetch_github_data(full_repo_path)
+                
+                if not github_data:
+                    continue
 
-            # Genera il file SVG
-            svg_path = self.generate_svg(full_repo_path, project_title, final_description, image_url)
-            
-            # Crea il link per il README
-            if self._output_type == "html":
-                escaped_title = project_title.replace('"', "&quot;")
-                markdown_outputs.append(
-                    f'<a href="{project_url}"><img src="{svg_path}" alt="{escaped_title}" title="{escaped_title}"></a>'
-                )
-            else:
-                escaped_title = project_title.replace('"', '\\"')
-                markdown_outputs.append(
-                    f'[![{project_title}]({svg_path} "{escaped_title}")]({project_url})'
-                )
+                final_description = custom_desc if custom_desc else github_data.get("description", "")
+                # Estraiamo il nome del progetto dal path se API fallisce
+                fallback_name = full_repo_path.split('/')[-1]
+                project_title = github_data.get("name", fallback_name)
+                project_url = github_data.get("html_url", "#")
 
-        # Affianca le card con uno spazio tra loro
-        return " ".join(markdown_outputs)
+                # Genera il file SVG
+                svg_path = self.generate_svg(full_repo_path, project_title, final_description, image_url)
+                
+                # Crea il link per il README
+                if self._output_type == "html":
+                    escaped_title = project_title.replace('"', "&quot;")
+                    section_outputs.append(
+                        f'<a href="{project_url}"><img src="{svg_path}" alt="{escaped_title}" title="{escaped_title}"></a>'
+                    )
+                else:
+                    escaped_title = project_title.replace('"', '\\"')
+                    section_outputs.append(
+                        f'[![{project_title}]({svg_path} "{escaped_title}")]({project_url})'
+                    )
+
+            # Uniamo le card della sezione sulla stessa riga (con uno spazio)
+            # Poi andiamo a capo un paio di volte prima della prossima sezione
+            final_markdown += " ".join(section_outputs) + "\n\n"
+
+        # Rimuoviamo eventuali spazi o a capo extra alla fine
+        return final_markdown.strip()
 
 
 class FileUpdater:
