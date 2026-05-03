@@ -52,27 +52,27 @@ class ProjectParser:
         from xml.sax.saxutils import escape
         import base64
 
-        # 1. FORMATTAZIONE TITOLO MULTIRIGA (Ora è più largo: 38 caratteri)
-        title_lines = textwrap.wrap(title, width=38, break_long_words=True)
+        # 1. FORMATTAZIONE TITOLO MULTIRIGA (Font più grande = meno caratteri per riga)
+        title_lines = textwrap.wrap(title, width=26, break_long_words=True)
         title_tspan_elements = ""
         for i, line in enumerate(title_lines):
             clean_line = escape(line)
-            dy = "0" if i == 0 else "22" 
-            title_tspan_elements += f'<tspan x="18" dy="{dy}">{clean_line}</tspan>\n    '
+            dy = "0" if i == 0 else "28" # Salto riga più ampio (28px)
+            title_tspan_elements += f'<tspan x="24" dy="{dy}">{clean_line}</tspan>\n    '
 
-        # 2. FORMATTAZIONE DESCRIZIONE (Ora è molto più larga: 58 caratteri)
+        # 2. FORMATTAZIONE DESCRIZIONE
         description = description or "Nessuna descrizione fornita."
-        desc_lines = textwrap.wrap(description, width=58, break_long_words=True)
+        desc_lines = textwrap.wrap(description, width=44, break_long_words=True)
         desc_tspan_elements = ""
         for i, line in enumerate(desc_lines):
             clean_line = escape(line)
-            dy = "0" if i == 0 else "18"
-            desc_tspan_elements += f'<tspan x="18" dy="{dy}">{clean_line}</tspan>\n    '
+            dy = "0" if i == 0 else "24" # Salto riga più ampio (24px)
+            desc_tspan_elements += f'<tspan x="24" dy="{dy}">{clean_line}</tspan>\n    '
 
-        # 3. CALCOLO POSIZIONE INIZIALE DESCRIZIONE (L'immagine è alta 150, quindi partiamo da 180)
-        title_start_y = 180
-        title_bottom = title_start_y + ((len(title_lines) - 1) * 22) if title_lines else title_start_y
-        desc_start_y = title_bottom + 20 # Margine ridotto sotto il titolo per compattare
+        # 3. CALCOLO POSIZIONE INIZIALE DESCRIZIONE
+        title_start_y = 200
+        title_bottom = title_start_y + ((len(title_lines) - 1) * 28) if title_lines else title_start_y
+        desc_start_y = title_bottom + 28 
 
         # 4. IMMAGINE BASE64
         b64_image_data = ""
@@ -87,26 +87,26 @@ class ProjectParser:
             except Exception as e:
                 print(f"Errore nel download dell'immagine {image_url}: {e}")
 
-        # 5. CREAZIONE SVG (Altezza immagine ridotta a 150px)
+        # 5. CREAZIONE SVG (Font ingranditi nelle <style> e margini aggiornati a x=24)
         svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{self._card_width}" height="{card_height}" viewBox="0 0 {self._card_width} {card_height}">
   <defs>
     <clipPath id="image-clip">
-      <path d="M 10 0 L {self._card_width - 10} 0 A 10 10 0 0 1 {self._card_width} 10 L {self._card_width} 150 L 0 150 L 0 10 A 10 10 0 0 1 10 0 Z" />
+      <path d="M 10 0 L {self._card_width - 10} 0 A 10 10 0 0 1 {self._card_width} 10 L {self._card_width} 160 L 0 160 L 0 10 A 10 10 0 0 1 10 0 Z" />
     </clipPath>
     <style>
-      .title {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 600; font-size: 18px; fill: {self._title_color}; }}
-      .desc {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 400; font-size: 13px; fill: {self._stats_color}; }}
+      .title {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 600; font-size: 24px; fill: {self._title_color}; }}
+      .desc {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 400; font-size: 18px; fill: {self._stats_color}; }}
     </style>
   </defs>
   
   <rect x="0" y="0" width="{self._card_width}" height="{card_height}" rx="{self._border_radius}" ry="{self._border_radius}" fill="{self._background_color}" stroke="#30363d" stroke-width="1.5"/>
-  <image href="{b64_image_data}" x="0" y="0" width="{self._card_width}" height="150" preserveAspectRatio="xMidYMid slice" clip-path="url(#image-clip)"/>
-  <line x1="0" y1="150" x2="{self._card_width}" y2="150" stroke="#30363d" stroke-width="1.5" />
+  <image href="{b64_image_data}" x="0" y="0" width="{self._card_width}" height="160" preserveAspectRatio="xMidYMid slice" clip-path="url(#image-clip)"/>
+  <line x1="0" y1="160" x2="{self._card_width}" y2="160" stroke="#30363d" stroke-width="1.5" />
   
-  <text x="18" y="{title_start_y}" class="title">
+  <text x="24" y="{title_start_y}" class="title">
     {title_tspan_elements}
   </text>
-  <text x="18" y="{desc_start_y}" class="desc">
+  <text x="24" y="{desc_start_y}" class="desc">
     {desc_tspan_elements}
   </text>
 </svg>"""
@@ -136,7 +136,7 @@ class ProjectParser:
 
             section_outputs = []
             processed_projects = []
-            max_section_height = 260 # Altezza minima sensibilmente ridotta
+            max_section_height = 300 # Altezza minima rialzata per accogliere i font giganti
             
             # --- PASS 1: Troviamo l'altezza MASSIMA calcolando i testi multiriga ---
             for proj in projects[: self._max_projects]:
@@ -152,15 +152,15 @@ class ProjectParser:
                 final_description = custom_desc if custom_desc else github_data.get("description", "")
                 project_title = github_data.get("name", full_repo_path.split('/')[-1])
                 
-                # Simuliamo l'ingombro del testo coi nuovi margini larghi
-                title_lines = textwrap.wrap(project_title, width=38, break_long_words=True)
-                desc_lines = textwrap.wrap(final_description or "Nessuna descrizione fornita.", width=58, break_long_words=True)
+                # Simuliamo l'ingombro coi font grandi
+                title_lines = textwrap.wrap(project_title, width=26, break_long_words=True)
+                desc_lines = textwrap.wrap(final_description or "Nessuna descrizione fornita.", width=44, break_long_words=True)
                 
                 # Calcolo altezza
-                title_bottom = 180 + ((len(title_lines) - 1) * 22) if title_lines else 180
-                desc_start_y = title_bottom + 20
-                desc_bottom = desc_start_y + ((len(desc_lines) - 1) * 18) if desc_lines else desc_start_y
-                calculated_h = desc_bottom + 25 
+                title_bottom = 200 + ((len(title_lines) - 1) * 28) if title_lines else 200
+                desc_start_y = title_bottom + 28
+                desc_bottom = desc_start_y + ((len(desc_lines) - 1) * 24) if desc_lines else desc_start_y
+                calculated_h = desc_bottom + 30 
                 
                 if calculated_h > max_section_height:
                     max_section_height = calculated_h
@@ -214,10 +214,7 @@ if __name__ == "__main__":
     parser.add_argument("--lang", dest="lang", default="en")
     parser.add_argument("--comment-tag-name", dest="comment_tag_name", default="PROJECT-CARDS")
     parser.add_argument("--max-projects", dest="max_projects", default=6, type=int)
-    
-    # LA MAGIA È QUI: Larghezza della card passata da 250 a 400!
     parser.add_argument("--card-width", dest="card_width", default=400, type=int)
-    
     parser.add_argument("--border-radius", dest="border_radius", default=10, type=int)
     parser.add_argument("--background-color", dest="background_color", default="#0d1117")
     parser.add_argument("--title-color", dest="title_color", default="#58a6ff")
