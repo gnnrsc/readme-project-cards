@@ -1,6 +1,5 @@
 import json
 import os
-import re
 import textwrap
 import urllib.parse
 import urllib.request
@@ -33,13 +32,10 @@ class ProjectParser:
         self._stats_color = stats_color
         self._output_type = output_type
         
-        # Crea la cartella per salvare gli SVG se non esiste
         self._cards_dir = "project-cards"
         os.makedirs(self._cards_dir, exist_ok=True)
 
     def fetch_github_data(self, full_repo_path: str) -> Dict[str, Any]:
-        """Fetch project data from the GitHub API"""
-        # RIMOSSO self._github_username perché full_repo_path ha già l'utente
         url = f"https://api.github.com/repos/{full_repo_path}"
         req = urllib.request.Request(url)
         req.add_header("Accept", "application/vnd.github.v3+json")
@@ -52,34 +48,24 @@ class ProjectParser:
             print(f"Errore nel recupero dati per {full_repo_path}: {e}")
             return {}
 
-    def generate_svg(self, full_repo_path: str, title: str, description: str, image_url: str) -> str:
-        """Genera il codice SVG calcolando l'altezza dinamicamente"""
+    def generate_svg(self, full_repo_path: str, title: str, description: str, image_url: str, card_height: int) -> str:
         from xml.sax.saxutils import escape
         import base64
-        import urllib.request
-        import os
 
-        # 1. Dividiamo il testo in righe (senza limiti massimi!)
+        # 1. Testo della descrizione
         description = description or "Nessuna descrizione fornita."
         lines = textwrap.wrap(description, width=35)
-        
-        # 2. CALCOLO ALTEZZA DINAMICA
-        # L'immagine, il titolo e i margini occupano circa 240 pixel in altezza.
-        # Ogni riga di testo aggiunge circa 18 pixel.
-        # Aggiungiamo 20 pixel per il bordo inferiore.
-        calculated_height = 240 + (len(lines) * 18) + 20
-        
-        # Manteniamo un'altezza minima di 320px per non avere card troppo "schiacciate" se il testo è corto
-        total_height = max(320, calculated_height)
             
         tspan_elements = ""
         for line in lines:
             clean_line = escape(line)
             tspan_elements += f'<tspan x="18" dy="18">{clean_line}</tspan>\n    '
 
-        clean_title = escape(title)
+        # 2. FIX TITOLO: Taglio elegante con i "..." se supera i 24 caratteri
+        display_title = title if len(title) <= 24 else title[:22] + "..."
+        clean_title = escape(display_title)
 
-        # 3. Conversione Immagine in Base64 (come prima)
+        # 3. Immagine Base64
         b64_image_data = ""
         if image_url:
             try:
@@ -92,8 +78,8 @@ class ProjectParser:
             except Exception as e:
                 print(f"Errore nel download dell'immagine {image_url}: {e}")
 
-        # 4. Creazione SVG usando {total_height} invece di 320
-        svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{self._card_width}" height="{total_height}" viewBox="0 0 {self._card_width} {total_height}">
+        # 4. Creazione SVG con card_height unificato
+        svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{self._card_width}" height="{card_height}" viewBox="0 0 {self._card_width} {card_height}">
   <defs>
     <clipPath id="image-clip">
       <path d="M 10 0 L {self._card_width - 10} 0 A 10 10 0 0 1 {self._card_width} 10 L {self._card_width} 180 L 0 180 L 0 10 A 10 10 0 0 1 10 0 Z" />
@@ -104,19 +90,16 @@ class ProjectParser:
     </style>
   </defs>
   
-  <!-- Il rettangolo di sfondo si allunga con {total_height} -->
-  <rect x="0" y="0" width="{self._card_width}" height="{total_height}" rx="{self._border_radius}" ry="{self._border_radius}" fill="{self._background_color}" stroke="#30363d" stroke-width="1.5"/>
-  
+  <rect x="0" y="0" width="{self._card_width}" height="{card_height}" rx="{self._border_radius}" ry="{self._border_radius}" fill="{self._background_color}" stroke="#30363d" stroke-width="1.5"/>
   <image href="{b64_image_data}" x="0" y="0" width="{self._card_width}" height="180" preserveAspectRatio="xMidYMid slice" clip-path="url(#image-clip)"/>
-  
   <line x1="0" y1="180" x2="{self._card_width}" y2="180" stroke="#30363d" stroke-width="1.5" />
+  
   <text x="18" y="215" class="title">{clean_title}</text>
   <text x="18" y="235" class="desc">
     {tspan_elements}
   </text>
 </svg>"""
 
-        # Salva il file
         file_name = full_repo_path.split('/')[-1]
         file_path = os.path.join(self._cards_dir, f"{file_name}.svg")
         with open(file_path, "w", encoding="utf-8") as f:
@@ -125,7 +108,6 @@ class ProjectParser:
         return f"{self._cards_dir}/{file_name}.svg"
 
     def parse_projects(self) -> str:
-        """Legge il config diviso in sezioni, genera gli SVG e crea il Markdown"""
         if not os.path.exists(self._projects_config):
             raise RuntimeError(f"Config file non trovato: {self._projects_config}")
             
@@ -134,68 +116,64 @@ class ProjectParser:
 
         final_markdown = ""
 
-        # Iteriamo attraverso le sezioni definite nel JSON
         for section in config_data:
             section_title = section.get("section_title", "")
             projects = section.get("projects", [])
             
-            # Se c'è un titolo, lo aggiungiamo al markdown finale
             if section_title:
                 final_markdown += f"{section_title}\n<br>\n\n"
 
             section_outputs = []
             
-            # Processiamo le card di questa specifica sezione
+            # --- PASS 1: Troviamo l'altezza MASSIMA necessaria in questa riga ---
+            processed_projects = []
+            max_section_height = 320 # Altezza minima di base
+            
             for proj in projects[: self._max_projects]:
-                # Supportiamo sia "full_repo_path" che "repo_name" per retrocompatibilità
                 full_repo_path = proj.get("full_repo_path") or proj.get("repo_name")
-                
                 if not full_repo_path:
                     continue
 
-                image_url = proj.get("image_url", "")
-                custom_desc = proj.get("custom_description", "")
-                
                 github_data = self.fetch_github_data(full_repo_path)
-                
                 if not github_data:
                     continue
 
+                custom_desc = proj.get("custom_description", "")
                 final_description = custom_desc if custom_desc else github_data.get("description", "")
-                # Estraiamo il nome del progetto dal path se API fallisce
-                fallback_name = full_repo_path.split('/')[-1]
-                project_title = github_data.get("name", fallback_name)
-                project_url = github_data.get("html_url", "#")
-
-                # Genera il file SVG
-                svg_path = self.generate_svg(full_repo_path, project_title, final_description, image_url)
                 
-                # Crea il link per il README
-                if self._output_type == "html":
-                    escaped_title = project_title.replace('"', "&quot;")
-                    section_outputs.append(
-                        f'<a href="{project_url}"><img src="{svg_path}" alt="{escaped_title}" title="{escaped_title}"></a>'
-                    )
-                else:
-                    escaped_title = project_title.replace('"', '\\"')
-                    section_outputs.append(
-                        f'[![{project_title}]({svg_path} "{escaped_title}")]({project_url})'
-                    )
+                # Quante righe occupa questa specifica descrizione?
+                lines = textwrap.wrap(final_description or "", width=35)
+                calculated_h = 240 + (len(lines) * 18) + 20
+                if calculated_h > max_section_height:
+                    max_section_height = calculated_h # Aggiorniamo il "record" di altezza
+                
+                processed_projects.append({
+                    "path": full_repo_path,
+                    "title": github_data.get("name", full_repo_path.split('/')[-1]),
+                    "desc": final_description,
+                    "url": github_data.get("html_url", "#"),
+                    "image": proj.get("image_url", "")
+                })
 
-            # Uniamo le card della sezione sulla stessa riga (con uno spazio)
-            # Poi andiamo a capo un paio di volte prima della prossima sezione
+            # --- PASS 2: Generiamo gli SVG forzandoli TUTTI all'altezza massima ---
+            for p in processed_projects:
+                svg_path = self.generate_svg(p["path"], p["title"], p["desc"], p["image"], max_section_height)
+                escaped_title = p["title"].replace('"', "&quot;")
+                
+                # FIX LARGHEZZA: Usiamo width="32%" per fargli occupare 3 colonne responsive 
+                section_outputs.append(
+                    f'<a href="{p["url"]}"><img src="{svg_path}" alt="{escaped_title}" title="{escaped_title}" width="32%"></a>'
+                )
+
+            # Uniamo le card della sezione lasciando uno spazio vuoto
             final_markdown += " ".join(section_outputs) + "\n\n"
 
-        # Rimuoviamo eventuali spazi o a capo extra alla fine
         return final_markdown.strip()
 
 
 class FileUpdater:
-    """Update the readme file"""
-
     @staticmethod
     def update(readme_path: str, comment_tag: str, replace_content: str):
-        """Replace the text between the begin and end tags with the replace content"""
         begin_tag = f"<!-- BEGIN {comment_tag} -->"
         end_tag = f"<!-- END {comment_tag} -->"
         
@@ -212,7 +190,6 @@ class FileUpdater:
         
         with open(readme_path, "w", encoding="utf-8") as readme_file:
             readme_file.write(readme)
-
 
 if __name__ == "__main__":
     parser = ArgumentParser()
