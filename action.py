@@ -43,7 +43,6 @@ class ProjectParser:
             return ""
 
     def generate_svg(self, file_name: str, title: str, description: str, image_url: str, card_height: int) -> str:
-        """Genera la card standard a colonna (Grid)"""
         from xml.sax.saxutils import escape
         title_lines = textwrap.wrap(title, width=23, break_long_words=True)
         title_tspan = ""
@@ -81,12 +80,10 @@ class ProjectParser:
         return file_path
 
     def generate_wide_svg(self, file_name: str, title: str, description: str, image_url: str, card_height: int) -> str:
-        """Genera la card Orizzontale con la nuova geometria"""
         from xml.sax.saxutils import escape
         WIDE_WIDTH = 880
-        IMG_WIDTH = 440 # L'immagine ora prende metà esatta della card (440 su 880)
+        IMG_WIDTH = 440 
 
-        # Wrap ricalcolato per lo spazio rimanente
         title_lines = textwrap.wrap(title, width=27, break_long_words=True)
         title_tspan = ""
         for i, line in enumerate(title_lines):
@@ -129,8 +126,17 @@ class ProjectParser:
         final_markdown = ""
 
         for section in config_data:
+            # --- NOVITÀ: Gestione gerarchica dei titoli e separatori ---
+            if section.get("add_divider", False):
+                final_markdown += "---\n\n"
+            
+            group_title = section.get("group_title", "")
+            if group_title:
+                final_markdown += f"{group_title}\n\n"
+
             section_title = section.get("section_title", "")
-            if section_title: final_markdown += f"{section_title}\n<br>\n\n"
+            if section_title:
+                final_markdown += f"{section_title}\n<br>\n\n"
 
             section_outputs = []
             processed_projects = []
@@ -150,7 +156,6 @@ class ProjectParser:
                 project_url = proj.get("custom_url") or github_data.get("html_url", "#")
                 layout = proj.get("layout", "grid")
 
-                # CALCOLO ALTEZZA DINAMICA SEPARATA (Allineato ai nuovi wrap)
                 if layout == "wide":
                     title_lines = textwrap.wrap(project_title, width=27, break_long_words=True)
                     desc_lines = textwrap.wrap(final_description or "", width=43, break_long_words=True)
@@ -186,7 +191,8 @@ class ProjectParser:
                     svg_path = self.generate_svg(p["id"], p["title"], p["desc"], p["image"], max_section_height)
                     section_outputs.append(f'<a href="{p["url"]}"><img src="{svg_path}" alt="{escaped_title}" title="{escaped_title}" width="32%"></a>')
 
-            final_markdown += " ".join(section_outputs) + "\n\n"
+            if section_outputs:
+                final_markdown += " ".join(section_outputs) + "\n\n"
 
         return final_markdown.strip()
 
