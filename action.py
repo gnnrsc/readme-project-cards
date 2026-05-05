@@ -83,20 +83,23 @@ class ProjectParser:
         from xml.sax.saxutils import escape
         WIDE_WIDTH = 880
         IMG_WIDTH = 440 
+        TEXT_PADDING = 45 # Aumentato lo spazio laterale!
 
-        title_lines = textwrap.wrap(title, width=27, break_long_words=True)
+        # Permettiamo linee più lunghe per riempire bene a destra
+        title_lines = textwrap.wrap(title, width=30, break_long_words=True)
         title_tspan = ""
         for i, line in enumerate(title_lines):
             clean = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#e5c07b">\1</tspan>', escape(line))
-            title_tspan += f'<tspan x="{IMG_WIDTH + 30}" dy="{"0" if i == 0 else "28"}">{clean}</tspan>\n'
+            title_tspan += f'<tspan x="{IMG_WIDTH + TEXT_PADDING}" dy="{"0" if i == 0 else "28"}">{clean}</tspan>\n'
 
-        desc_lines = textwrap.wrap(description or "", width=43, break_long_words=True)
+        desc_lines = textwrap.wrap(description or "", width=48, break_long_words=True)
         desc_tspan = ""
         for i, line in enumerate(desc_lines):
             clean = re.sub(r'\*\*(.*?)\*\*', r'<tspan fill="#e5c07b">\1</tspan>', escape(line))
-            desc_tspan += f'<tspan x="{IMG_WIDTH + 30}" dy="{"0" if i == 0 else "22"}">{clean}</tspan>\n'
+            desc_tspan += f'<tspan x="{IMG_WIDTH + TEXT_PADDING}" dy="{"0" if i == 0 else "22"}">{clean}</tspan>\n'
 
-        title_start_y = 50
+        # Partiamo leggermente più in basso per centratura
+        title_start_y = 55
         title_bottom = title_start_y + ((len(title_lines) - 1) * 28) if title_lines else title_start_y
         desc_start_y = title_bottom + 25
         b64_img = self.get_base64_image(image_url)
@@ -126,7 +129,6 @@ class ProjectParser:
         final_markdown = ""
 
         for section in config_data:
-            # --- NOVITÀ: Gestione gerarchica dei titoli e separatori ---
             if section.get("add_divider", False):
                 final_markdown += "---\n\n"
             
@@ -157,11 +159,12 @@ class ProjectParser:
                 layout = proj.get("layout", "grid")
 
                 if layout == "wide":
-                    title_lines = textwrap.wrap(project_title, width=27, break_long_words=True)
-                    desc_lines = textwrap.wrap(final_description or "", width=43, break_long_words=True)
-                    title_bottom = 50 + ((len(title_lines) - 1) * 28) if title_lines else 50
+                    # Adattato i wrap di calcolo anche qui
+                    title_lines = textwrap.wrap(project_title, width=30, break_long_words=True)
+                    desc_lines = textwrap.wrap(final_description or "", width=48, break_long_words=True)
+                    title_bottom = 55 + ((len(title_lines) - 1) * 28) if title_lines else 55
                     desc_bottom = (title_bottom + 25) + ((len(desc_lines) - 1) * 22) if desc_lines else (title_bottom + 25)
-                    calculated_h = max(240, desc_bottom + 30) 
+                    calculated_h = max(245, desc_bottom + 35) # Altezza minima per non fare sbattere il testo sotto
                     
                     processed_projects.append({
                         "id": proj_id.replace("/", "-"),
